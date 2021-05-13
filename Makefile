@@ -1,4 +1,4 @@
-PROJECTNAME="Executor"
+ProjectName="acme"
 
 all: clean deps linux
 
@@ -12,6 +12,6 @@ deps:
 linux:
 	mkdir -p dist/linux/
 
-	go build -o dist/linux/skywalking_executor cmd/main.go
+	go build -o dist/linux/acme cmd/main.go
 
 

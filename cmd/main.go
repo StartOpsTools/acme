@@ -8,18 +8,15 @@ import (
 )
 
 var (
-	//letEncryptDirectoryUrl = "https://acme-v02.api.letsencrypt.org/directory"
-	letEncryptDirectoryUrl = "https://acme-staging-v02.api.letsencrypt.org/directory"
+	//let Encrypt 正式环境 API
+	letEncryptDirectoryProdUrl = "https://acme-v02.api.letsencrypt.org/directory"
+	//let Encrypt 测试环境 API
+	letEncryptDirectoryTestUrl = "https://acme-staging-v02.api.letsencrypt.org/directory"
 )
-
-/*
-参考链接: https://zhuanlan.zhihu.com/p/75032510
-*/
-
 
 func main() {
 	// directory - get
-	directoryResponse, err := acme.Directory(letEncryptDirectoryUrl)
+	directoryResponse, err := acme.Directory(letEncryptDirectoryTestUrl)
 	if err != nil {
 		fmt.Println("request directory error, err: ", err.Error())
 		return
@@ -49,7 +46,7 @@ func main() {
 	newAcctRequestProtectedString := base64.StdEncoding.EncodeToString(newAcctRequestProtectedByte)
 	
 	var newAcctRequestPayload acme.NewAcctRequestPayload
-	newAcctRequestPayloadContact := []string{"mailto: qx@startops.com.cn"}
+	newAcctRequestPayloadContact := []string{"mailto: qx@mail.com"}
 	newAcctRequestPayload.Contact = newAcctRequestPayloadContact
 	newAcctRequestPayload.TermsOfServiceAgreed = true
 	newAcctRequestPayloadByte, err := json.Marshal(newAcctRequestPayload)

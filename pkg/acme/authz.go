@@ -1,6 +1,6 @@
 package acme
 
-// 5
+// 5 认证
 
 func AuthZ(){
 

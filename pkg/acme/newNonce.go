@@ -1,6 +1,6 @@
 package acme
 
-// 2
+// 2 获取随机数
 
 import (
 	"errors"
