@@ -39,20 +39,22 @@ type NewAcctRequestPayload struct {
 func (newAcctRequest NewAcctRequest) NewAccount(newAccountUrl string) {
 	newAcctRequestByte, err := json.Marshal(newAcctRequest)
 	requestParameter := bytes.NewBuffer(newAcctRequestByte)
-	//fmt.Println("requestParameter: ", requestParameter)
+
+	fmt.Println("newAccount requestParameter: ", requestParameter)
+
 	resp, err := http.Post(newAccountUrl, "application/jose+json", requestParameter)
 	if err != nil {
 		return
 	}
-	
+
 	respBody := resp.Body
 	defer resp.Body.Close()
-	
+
 	respBodyByte, err := ioutil.ReadAll(respBody)
 	if err != nil {
 		return
 	}
-	
+
 	fmt.Println("respBodyByte: ", string(respBodyByte))
-	
+
 }

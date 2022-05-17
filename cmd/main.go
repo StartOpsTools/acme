@@ -1,11 +1,34 @@
 package main
 
 import (
-	"encoding/base64"
-	"encoding/json"
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
 	"fmt"
-	"github.com/StartOpsTools/acme/pkg/acme"
+	"github.com/go-acme/lego/v4/certcrypto"
+	"github.com/go-acme/lego/v4/certificate"
+	"github.com/go-acme/lego/v4/challenge/dns01"
+	"github.com/go-acme/lego/v4/lego"
+	"github.com/go-acme/lego/v4/registration"
+	"time"
 )
+
+type User struct {
+	Email        string
+	Registration *registration.Resource
+	key          crypto.PrivateKey
+}
+
+func (user User) GetEmail() string {
+	return user.Email
+}
+
+func (user User) GetRegistration() *registration.Resource {
+	return user.Registration
+}
+func (user User) GetPrivateKey() crypto.PrivateKey {
+	return user.key
+}
 
 var (
 	//let Encrypt 正式环境 API
@@ -14,52 +37,80 @@ var (
 	letEncryptDirectoryTestUrl = "https://acme-staging-v02.api.letsencrypt.org/directory"
 )
 
+type MyDNS struct {
+}
+
+func (myDNS MyDNS) Present(domain, token, keyAuth string) error {
+	fqdn, value := dns01.GetRecord(domain, keyAuth)
+
+	fmt.Printf("fqdn: %s,  value: %s\n", fqdn, value)
+	return nil
+}
+
+func (myDNS MyDNS) CleanUp(domain, token, keyAuth string) error {
+	return nil
+}
+
+func (myDNS MyDNS) Timeout() (timeout, interval time.Duration) {
+	return 120 * time.Second, 5 * time.Second
+}
+
 func main() {
-	// directory - get
-	directoryResponse, err := acme.Directory(letEncryptDirectoryTestUrl)
+
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		fmt.Println("request directory error, err: ", err.Error())
+		fmt.Println("private key err: ", err.Error())
 		return
 	}
-	// newNonce - head
-	newNonceUrl := directoryResponse.NewNonce
-	replayNonce, err := acme.NewNonce(newNonceUrl)
+
+	user := User{
+		Email: "qx@startops.com.cn",
+		key:   privateKey,
+	}
+
+	config := lego.NewConfig(&user)
+
+	config.CADirURL = letEncryptDirectoryTestUrl
+	config.Certificate.KeyType = certcrypto.RSA4096
+
+	client, err := lego.NewClient(config)
+
 	if err != nil {
-		fmt.Println("request nonceUrl error, replayNonce failed, err: ", err.Error())
+		fmt.Println("config key err: ", err.Error())
 		return
 	}
-	// newAccount - post
-	
-	newAccountUrl := directoryResponse.NewAccount
-	
-	var newAcctRequestProtected acme.NewAcctRequestProtected
-	newAcctRequestProtected.Nonce = replayNonce
-	newAcctRequestProtected.Url = newAccountUrl
-	newAcctRequestProtected.Alg = "RS256"
-	newAcctRequestProtected.Jwk.E = "AQAB"
-	newAcctRequestProtected.Jwk.Kty = "RSA"
-	newAcctRequestProtected.Jwk.N = "uxogbZMm3hXq5c3tgIkqtrKyk69ZWKOlfmbHmSErd4NHNaSywfKey2l3-tAPywL_iI6IHEW4ViYT7ha41h6q6fGxwuRc2v9AGegV24RMwZXlZwihLBn3h507WXQYIA5auSJS6NWkF0ERsx2_095MJCrsH5HvqbCyocrqwh97mHy2zBN4IOPn-BEgb2xf8_AslgzQcVZ5UjzZxQ-p5lyzwOpfDPXY8-bsqFfk9-Mu1kzDtCTas6J35em2GhaHVN85i_tA2LNfhbz1bNTopt2wZCFRv9eMhlxBw_RhmCAkpmcVnL-a6pCnCWDSL8aWw2mGn5suXE607DWpyXHvmWJx5Q"
-	newAcctRequestProtectedByte, err := json.Marshal(newAcctRequestProtected)
+
+	var myDNS MyDNS
+	err = client.Challenge.SetDNS01Provider(myDNS)
 	if err != nil {
+		fmt.Println("set dns err: ", err.Error())
 		return
 	}
-	newAcctRequestProtectedString := base64.StdEncoding.EncodeToString(newAcctRequestProtectedByte)
-	
-	var newAcctRequestPayload acme.NewAcctRequestPayload
-	newAcctRequestPayloadContact := []string{"mailto: qx@mail.com"}
-	newAcctRequestPayload.Contact = newAcctRequestPayloadContact
-	newAcctRequestPayload.TermsOfServiceAgreed = true
-	newAcctRequestPayloadByte, err := json.Marshal(newAcctRequestPayload)
+
+	reg, err := client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true})
 	if err != nil {
+		fmt.Println("reg err: ", err.Error())
 		return
 	}
-	newAcctRequestPayloadString := base64.StdEncoding.EncodeToString(newAcctRequestPayloadByte)
-	
-	var newAcctRequest acme.NewAcctRequest
-	newAcctRequest.Signature = "bzW7CyT2ln1Ms17vfc8kgDgy9yNlwFWFshEUVrFFBUJVWVROvlBjG6CFDXldCGkPvTJCJ1mRvXoMsk3uQ5FhTNaMpBsv7QVL9N03LuLZax1RE_2eyjj5ATMGq8wzXqgAjzC7ueJfcHYuFbuR33NsDXMWZmpEqKi4cf8h-GBDWnuKKUUN0-N-2aQo_JEbRrk5dMbZ1ACJ2Evy46y7-0jCmrHLgnGK7nPK6fmp__6WfNOK_PzjFj3t65NXqio68w2IqXy4CONqx0miqLdgyZfk-HGCN9c4ACNGEhj_mJ9pUEiABaQJagcOqkIADEESg6tIaw9pj0HjqxxlpHTzgrGwxQ"
-	newAcctRequest.Protected = newAcctRequestProtectedString
-	newAcctRequest.Payload = newAcctRequestPayloadString
-	
-	newAcctRequest.NewAccount(newAccountUrl)
-	
+
+	user.Registration = reg
+
+	request := certificate.ObtainRequest{
+		Domains: []string{"hook.startops.com.cn"},
+		Bundle:  true,
+	}
+
+	certificates, err := client.Certificate.Obtain(request)
+	if err != nil {
+		fmt.Println("cert err: ", err.Error())
+		return
+	}
+
+	fmt.Println("Domain: ", certificates.Domain)
+	fmt.Println("\n")
+	fmt.Println("IssuerCertificate: ", string(certificates.IssuerCertificate))
+	fmt.Println("\n")
+	fmt.Println("PrivateKey: ", string(certificates.PrivateKey))
+	fmt.Println("\n")
+	fmt.Println("Certificate: ", string(certificates.Certificate))
 }
